@@ -1,0 +1,315 @@
+---- IMAGE
+
+docker image | image --help
+
+docker pull image_name (download the image)
+
+docker image ls (show images)
+
+docker image prune | prune -a | rm repository/id | rm id id (only the first 3 numbers of the hash)
+	-a, all
+
+
+	* rename image tag (for created or downloaded images)
+
+	docker image tag image_name:tag_name image_name:new_tag_name
+		(create a copy of the image, but with a different tag)
+		(if the tag_name is not specified, the latest will be used)
+
+
+---- CONTAINER
+
+docker container | container --help
+
+docker container run image_name | -d image_name | -dp 8080:80 (lift a container)
+	-d, unlinks from the terminal
+	-p, publish -> mi pc:container
+
+docker container ls | ls -a (show all containers)
+	-a, includes container exited
+
+docker container stop id
+
+docker container start id
+
+docker container prune | rm id | rm -f id
+	-f, forced
+
+
+---- VOLUME
+
+docker volume | volume --help
+
+docker volume ls (list volumes)
+
+docker volume inspect volume_name (info on one or more)
+
+docker volume create volume_name (create volume)
+
+docker volume prune | rm (1 or more)
+
+
+---- NETWORK
+
+docker network | network --help
+
+docker network create network_name
+
+docker network connect network_id/name container_id 
+	(it is repeated for each container that you want to connect to the network)
+
+docker network inspect network_id
+
+docker network prune | rm (1 or more)
+
+
+---- LOGS (view logs)
+
+docker container logs id | --folow/-f id
+
+
+---- EXEC (enter the container and view or modify files)
+
+docker exec -it container_id /bin/sh
+	/bin/sh -> go to the /bin folder and run the shell command
+
+	* once inside, it can be used: 
+	cd ..
+	cd /
+	cat file_name (to print the file info)
+	vi file_name (to edit the file info)
+		a, to edit
+		wq!, to save and quit
+	exit (to close)	
+
+	(other commands: ls, ls -al)
+		-al, all
+
+
+---- DOCKER COMPOSE (you need to create the docker-compose.yml file)
+
+docker compose up | up -d
+	(automatically creates the network, the volume (if specified) and lifts the containers)
+
+docker compose logs | logs -f (view logs)
+	-f, follow
+
+docker compose down | down --volume
+	(remove containers and net)
+	--volume, also removes the volumes
+
+	---
+	Digamos que tengo una app. Si se quiere crear una imagen con esa misma app, se puede seguir el siguiente ejemplo...
+
+	El comando "docker compose build", se usa para la construcción de la imagen del Dockerfile	
+	En el "docker-compose.yml" (06-docker-compose-dockerfile), no se utiliza una imagen ya existente para el servicio "app"
+	En su lugar, se define un servicio "build" en "app"
+	
+	Al ejecutar "docker compose build" (obervacion: el cmd debe estar en el mismo path del docker-compose.yml)
+	Docker busca el "build" y construye la imagen en el Dockerfile 
+		docker-compose.yml (app):  target: dev
+		en Dockerfile:             as dev
+
+	En resumen:
+	* "docker compose build": construye o reconstruye la imagen para el servicio "app" que define un build en el archivo docker-compose.yml
+	* solo afecta a los servicios que tienen una configuración de construcción (build), no a aquellos que utilizan imágenes ya existentes (image)
+	* en este caso, construye la imagen para "app" basada en su Dockerfile
+
+	Este enfoque es útil cuando quieres personalizar la imagen del contenedor con instrucciones específicas que defines en tu Dockerfile
+
+	* docker compose build
+		(en el docker-compose.yml, busca el "build")
+		(tiene el target de "dev", que hace match con el "as dev" que esta en el Dockerfile)
+		(construye esta imagen)
+
+	* docker compose up 
+		(para levantarlo)
+
+
+	---
+	Es el mismo ejemplo de arriba, pero con "prod"
+
+	Se copia y renombra: docker-compose.yml -> docker-compose.prod.yml
+	Alli dentro: se cambia el tag: prod, se eliminan los volumenes innecesarios... (en caso de ser asi)
+
+	* docker compose -f docker-compose.prod.yml build | build app (crea la imagen)
+		app, nombre del servicio
+		
+
+	* docker compose -f docker-compose.prod.yml up | up -d (la levanta)
+
+
+---- DOCKERFILE 
+	(create the image with the architecture of the pc that creates it)
+	(for multiple architectures, BUILDX is used)
+
+docker build --tag image_name . | -t image_name . | image_name:1.0.0 .
+	. -> relative path where the Dockerfile is located
+
+	
+	* if you want to build an image based on a specific target (refers to 'as' -> alias in Dockerfile)
+	ejm: docker build --target dev -t image_name:dev .
+	
+
+
+---- AUTH
+
+docker login
+
+docker logout
+
+
+---- PUSH	
+
+docker image tag image_name user/image_name 
+	(create a copy of the image and rename it)
+	(if "image_name" and "user/image_name" does not specify the tag, copy the latest)
+
+* ejm: docker image tag cron-ticker zfabri/cron-ticker
+	(in this case, the image_name is latest and the copy will also be the latest)
+
+docker push user/image_name:tagname
+	(if the tag is not specified, the latest is used)
+
+* ejm: docker push zfabri/cron-ticker:iguana
+
+
+---- BUILDX
+	(create images with architectures)
+	(multi-platform images)
+
+docker buildx create --name mybuilder --bootstrap --use (download this image)
+	--use, use this buildx
+
+docker buildx ls (show the builders)
+
+docker buildx use builder_name (use a specified builder)
+	(if you don't change builder, run the same command multiple times)
+
+docker buildx inspect (inspect the current builder)
+
+	* another way (in the official docs)
+	docker buildx imagetools inspect user/image_name:tag
+
+
+docker buildx rm build_name
+
+docker buildx build --platform ... -t user/image_name:tag --push .
+	..., linux/amd64,linux/arm64 and others
+	-t, tag
+	., specify the path of the Dockerfile
+	--push, upload it to repository
+
+
+---- MULTIPLE INSTANCES
+
+-e | --env
+-v | --volume
+-w, working directory
+sh, shell command
+
+
+* ejm 1 - postgres
+
+docker container run  `
+--name postgres-alpha2 `
+-e POSTGRES_PASSWORD=mypass1 `
+-dp 5433:5432 `
+postgres:14-alpine3.17
+
+
+* ejm 2 - mariadb
+
+docker container run `
+-e MARIADB_USER=example-user `
+-e MARIADB_PASSWORD=user-password `
+-e MARIADB_ROOT_PASSWORD=root-secret-password `
+-e MARIADB_DATABASE=world-db `
+--name maria-db `
+-dp 3306:3306 `
+mariadb:jammy
+
+
+* ejm 2.1 - add volume (you need to first create the volume)
+
+-v world-db:/var/lib/mysql `
+	
+
+* ejm 2.2 - add network (you need to first create the network)
+
+--network world-app `
+
+
+* ejm 3 - phpmyadmin 
+	(in the "server" field, the name of the db container is placed, which is generally within the network. Of course, first you must add both the db and the phpmyadmin to the network)
+
+docker container run `
+--name phpmyadmin `
+-d `
+-e PMA_HOST=dbhost `
+-e PMA_ARBITRARY=1 `
+-p 8080:80 `
+phpmyadmin:5.2.0-apache
+
+
+* ejm 3.1 - add network
+
+--network world-app `
+
+
+* ejm 4 - postgres
+
+docker container run `
+-d `
+--name postgres-db `
+-e POSTGRES_PASSWORD=123456 `
+-v postgres-db:/var/lib/postgresql/data `
+postgres:15.1
+
+
+	- pgadmin (when you add the "server", in the "host" field you put the name of the database container, because you want to access it from a container)
+
+docker container run `
+--name pgAdmin `
+-e PGADMIN_DEFAULT_PASSWORD=123456 `
+-e PGADMIN_DEFAULT_EMAIL=email@email.com `
+-dp 8080:80 `
+dpage/pgadmin4:6.17
+
+
+* ejm 5 - bind volume
+	- there is no installing the node_modules locally
+	- when the container is run (in which the yarn install is done), the node_modules of the container will be shared and the local file will appear
+	-w /app  -> create /app folder in container
+	-v ${pwd}:/app -> copy the content of the path to /app
+
+docker container run `
+--name nest-app `
+-w /app `
+-dp 80:3000 `
+-v ${pwd}:/app `
+node:16-alpine3.16 `
+sh -c "yarn install && yarn start:dev"
+
+
+* ejm 6 - buildx
+
+docker buildx build `
+--platform linux/amd64,linux/arm64,linux `
+-t zfabri/cron-ticker:oso --push .
+
+(it is recommended that once an image is uploaded with a tag (for example, oso), climb again, but without tag (to use the latest))
+
+
+* ejm 7 - buildx
+
+docker buildx build `
+--platform linux/amd64,linux/arm64 `
+-t zfabri/cron-ticker:gato --push .
+
+
+* ejm 8 - buildx
+
+docker buildx build `
+--platform linux/amd64,linux/arm64 `
+-t zfabri/teslo-shop:1.0.0 --push .

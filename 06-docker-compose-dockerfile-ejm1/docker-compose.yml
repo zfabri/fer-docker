@@ -1,0 +1,53 @@
+version: '3'
+
+services:
+  app:
+    # en este punto, no se utilizara una imagen como tal
+    # sino que se usara el Dockerfile
+    # es el primer ejemplo donde lo utilizo
+    build: 
+      # ., especifica donde se encuentra el Dockerfle
+      context: .
+      # por defecto, el busca el dockerfile, por lo que la linea siguiente no es obligatoria
+      dockerfile: Dockerfile
+      # aqui busca el: as dev
+      target: ${STAGE}
+    # command: yarn start:dev
+
+    volumes:
+      # este volumen es para el bind volume, osea, para compartir mis archivos locales con el contenedor
+      - ./:/app/
+      # esto es para que se comparta los node_modules
+      # es un volumen anonimo
+      - /app/node_modules
+    container_name: nest-app
+    ports:
+      - ${PORT}:${PORT}
+    environment:
+      - APP_VERSION=${APP_VERSION}
+      - STAGE=${STAGE}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USERNAME=${DB_USERNAME}
+      - PORT=${PORT}
+      - HOST_API=${HOST_API}
+      - JWT_SECRET=${JWT_SECRET}
+
+  db:
+    image: postgres:14.3
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    container_name: ${DB_NAME}
+    volumes:
+      - postgres-db:/var/lib/postgresql/data
+
+
+volumes:
+  postgres-db:
+    external: false
